@@ -31,5 +31,6 @@ export type {
   AgentExecutionContext,
   CreateAgentOptions,
   AgentCallOptions,
+  WrapModelFn,
 } from './types'
 export type { AgentConfig } from './router/schema'

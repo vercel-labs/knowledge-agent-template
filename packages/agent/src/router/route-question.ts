@@ -4,6 +4,7 @@ import type { UIMessage } from 'ai'
 import { log } from 'evlog'
 import { ROUTER_SYSTEM_PROMPT } from '../prompts/router'
 import { type AgentConfig, agentConfigSchema, getDefaultConfig, getModelFallbackOptions, ROUTER_MODEL } from './schema'
+import type { WrapModelFn } from '../types'
 
 function extractQuestionFromMessages(messages: UIMessage[]): string {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
@@ -21,8 +22,10 @@ export async function routeQuestion(
   messages: UIMessage[],
   requestId: string,
   apiKey?: string,
+  wrapModel?: WrapModelFn,
 ): Promise<AgentConfig> {
   const gateway = createGateway(apiKey ? { apiKey } : undefined)
+  const model = wrapModel ? wrapModel(ROUTER_MODEL) : gateway(ROUTER_MODEL)
 
   const question = extractQuestionFromMessages(messages)
   if (!question) {
@@ -32,7 +35,7 @@ export async function routeQuestion(
 
   try {
     const { output } = await generateText({
-      model: gateway(ROUTER_MODEL),
+      model,
       output: Output.object({ schema: agentConfigSchema }),
       messages: [
         { role: 'system', content: ROUTER_SYSTEM_PROMPT },

@@ -4,9 +4,9 @@ import { db, schema } from '@nuxthub/db'
 import { kv } from '@nuxthub/kv'
 import { and, eq } from 'drizzle-orm'
 import { createSavoir } from '@savoir/sdk'
-import { log, useLogger } from 'evlog'
+import { useLogger } from 'evlog'
+import { createAILogger } from 'evlog/ai'
 import { createSourceAgent, createAdminAgent } from '@savoir/agent'
-import type { RoutingResult } from '@savoir/agent'
 import { generateTitle } from '../../utils/chat/generate-title'
 import { getAgentConfig } from '../../utils/agent-config'
 import { KV_KEYS } from '../../utils/sandbox/types'
@@ -83,13 +83,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    let stepCount = 0
-    let toolCallCount = 0
-    let totalInputTokens = 0
-    let totalOutputTokens = 0
-    let stepStartTime = Date.now()
-    const stepDurations: number[] = []
-    let routingResult: RoutingResult | undefined
+    const ai = createAILogger(requestLog)
     let effectiveModel = model
 
     const existingSessionId = await kv.get<string>(KV_KEYS.ACTIVE_SANDBOX_SESSION)
@@ -104,54 +98,10 @@ export default defineEventHandler(async (event) => {
       sessionId: existingSessionId || undefined,
     })
 
-    const onStepFinish = (stepResult: { usage?: { inputTokens?: number; outputTokens?: number }; toolCalls?: { toolName: string }[] }) => {
-      const stepDurationMs = Date.now() - stepStartTime
-      stepDurations.push(stepDurationMs)
-      stepCount++
-
-      if (stepResult.usage) {
-        totalInputTokens += stepResult.usage.inputTokens ?? 0
-        totalOutputTokens += stepResult.usage.outputTokens ?? 0
-      }
-
-      if (stepResult.toolCalls?.length) {
-        toolCallCount += stepResult.toolCalls.length
-        const tools = stepResult.toolCalls.map(c => c.toolName).join(', ')
-        log.info('chat', `[${requestId}] Step ${stepCount}: ${tools} (${stepDurationMs}ms)`)
-      } else {
-        log.info('chat', `[${requestId}] Step ${stepCount}: response (${stepDurationMs}ms)`)
-      }
-
-      stepStartTime = Date.now()
-    }
-
-    const onFinish = (result: { finishReason: string }) => {
-      const totalDurationMs = stepDurations.reduce((a, b) => a + b, 0)
-      requestLog.set({
-        finishReason: result.finishReason,
-        totalInputTokens,
-        totalOutputTokens,
-        totalTokens: totalInputTokens + totalOutputTokens,
-        stepCount,
-        toolCallCount,
-        stepDurations,
-        totalAgentMs: totalDurationMs,
-        ...(routingResult && {
-          routerComplexity: routingResult.routerConfig.complexity,
-          routerMaxSteps: routingResult.routerConfig.maxSteps,
-          effectiveMaxSteps: routingResult.effectiveMaxSteps,
-          stepsMultiplier: routingResult.agentConfig.maxStepsMultiplier,
-          routerReasoning: routingResult.routerConfig.reasoning,
-        }),
-      })
-      log.info('chat', `[${requestId}] Finished: ${result.finishReason} (total: ${totalDurationMs}ms)`)
-    }
-
     const agent = isAdminChat
       ? createAdminAgent({
         tools: adminTools,
-        onStepFinish,
-        onFinish,
+        wrapModel: ai.wrap,
       })
       : createSourceAgent({
         tools: savoir.tools,
@@ -159,13 +109,17 @@ export default defineEventHandler(async (event) => {
         messages,
         defaultModel: model,
         requestId,
+        wrapModel: ai.wrap,
         onRouted: ({ routerConfig, agentConfig, effectiveModel: routedModel, effectiveMaxSteps }) => {
           effectiveModel = routedModel
-          routingResult = { routerConfig, agentConfig, effectiveModel: routedModel, effectiveMaxSteps }
-          log.info('chat', `[${requestId}] Starting agent [${chat.mode}] with ${effectiveModel} (routed: ${routerConfig.complexity}, ${effectiveMaxSteps} steps, multiplier: ${agentConfig.maxStepsMultiplier}x)`)
+          requestLog.set({
+            routerComplexity: routerConfig.complexity,
+            routerMaxSteps: routerConfig.maxSteps,
+            effectiveMaxSteps,
+            stepsMultiplier: agentConfig.maxStepsMultiplier,
+            routerReasoning: routerConfig.reasoning,
+          })
         },
-        onStepFinish,
-        onFinish,
       })
 
     const requestStartTime = Date.now()
@@ -173,7 +127,6 @@ export default defineEventHandler(async (event) => {
     const abortController = new AbortController()
     event.node.res.once('close', () => {
       if (!event.node.res.writableFinished) {
-        log.info('chat', `[${requestId}] Client disconnected, aborting agent`)
         abortController.abort()
       }
     })
@@ -183,6 +136,7 @@ export default defineEventHandler(async (event) => {
         firstMessage: messages[0],
         chatId: id as string,
         requestId,
+        wrapModel: ai.wrap,
       })
       : null
 
@@ -211,8 +165,6 @@ export default defineEventHandler(async (event) => {
           parts: message.parts,
           ...(message.role === 'assistant' && {
             model: effectiveModel,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
             durationMs: totalDurationMs,
           }),
         })))

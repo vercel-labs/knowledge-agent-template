@@ -20,7 +20,7 @@
         "@chat-adapter/state-memory": "^4.13.0",
         "@chat-adapter/state-redis": "^4.13.0",
         "@electric-sql/pglite": "^0.3.15",
-        "@evlog/nuxthub": "^1.1.0",
+        "@evlog/nuxthub": "^2.0.0",
         "@googleapis/youtube": "^31.0.0",
         "@iconify-json/logos": "^1.2.10",
         "@iconify-json/lucide": "^1.2.89",
@@ -43,6 +43,7 @@
         "chat": "^4.13.0",
         "date-fns": "^4.1.0",
         "drizzle-orm": "^0.45.1",
+        "evlog": "^2.8.0",
         "giget": "^3.1.2",
         "motion-v": "^1.10.3",
         "nuxt": "^4.3.1",
@@ -460,7 +461,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
 
-    "@evlog/nuxthub": ["@evlog/nuxthub@1.1.0", "", { "peerDependencies": { "@nuxthub/core": "^0.10.6", "drizzle-orm": ">=0.45.1", "evlog": "^1.10.0" } }, "sha512-gOi+cpT83InV7Zc6r7lwY8qekcwYZENv9sUFLdzdR0bnBQRji2feCbTpzjzVWaDy2RIiSOoPxLWwWG+obNEmRA=="],
+    "@evlog/nuxthub": ["@evlog/nuxthub@2.0.0", "", { "peerDependencies": { "@nuxthub/core": "^0.10.6", "drizzle-orm": ">=0.45.1", "evlog": "^2.0.0" } }, "sha512-UEVzDYssUth6s0ZgiuMrKH4dBloOlfVXD05wYa6fVNQWyt40jv6v2dMSPL3V4K7SfjtTQhF2/qh4i6Y03yMEOg=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.4", "", { "dependencies": { "@floating-ui/utils": "^0.2.10" } }, "sha512-C3HlIdsBxszvm5McXlB8PeOEWfBhcGBTZGkGlWc2U0KFY5IwG5OQEuQ8rq52DZmcHDlPLd+YFBK+cZcytwIFWg=="],
 
@@ -4040,6 +4041,8 @@
 
     "@eslint/eslintrc/globals": ["globals@14.0.0", "", {}, "sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ=="],
 
+    "@evlog/nuxthub/evlog": ["evlog@2.8.0", "", { "peerDependencies": { "@nestjs/common": ">=11.1.16", "@nuxt/kit": "^4.4.2", "ai": ">=6.0.0", "elysia": ">=1.4.27", "express": ">=5.2.1", "fastify": ">=5.8.2", "h3": "^1.15.6", "hono": "", "next": ">=16.1.6", "nitro": "^3.0.260311-beta", "nitropack": "^2.13.1", "ofetch": "^1.5.1", "react": ">=19.2.4", "vite": "^7.0.0 || ^8.0.0" }, "optionalPeers": ["@nestjs/common", "@nuxt/kit", "ai", "elysia", "express", "fastify", "h3", "hono", "next", "nitro", "nitropack", "ofetch", "react", "vite"] }, "sha512-/0H3/DpAddjuWyMoFmU2LyJtAFRPQmwvjvY+wZGYrmsdJ196ITG6Gc4zqVhDIyg6QDdSAwiplM5V7zezrXxsgw=="],
+
     "@mapbox/geojson-rewind/get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
 
     "@mapbox/node-pre-gyp/node-fetch": ["node-fetch@2.7.0", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A=="],
@@ -4101,6 +4104,8 @@
     "@prisma/fetch-engine/@prisma/get-platform": ["@prisma/get-platform@7.4.0", "", { "dependencies": { "@prisma/debug": "7.4.0" } }, "sha512-fOUIoGzAPgtjHVs4DsVSnEDPBEauAmFeZr4Ej3tMwxywam7hHdRtCzgKagQBKcYIJuya8gzYrTqUoukzXtWJaA=="],
 
     "@prisma/get-platform/@prisma/debug": ["@prisma/debug@7.2.0", "", {}, "sha512-YSGTiSlBAVJPzX4ONZmMotL+ozJwQjRmZweQNIq/ER0tQJKJynNkRB3kyvt37eOfsbMCXk3gnLF6J9OJ4QWftw=="],
+
+    "@savoir/app/evlog": ["evlog@2.8.0", "", { "peerDependencies": { "@nestjs/common": ">=11.1.16", "@nuxt/kit": "^4.4.2", "ai": ">=6.0.0", "elysia": ">=1.4.27", "express": ">=5.2.1", "fastify": ">=5.8.2", "h3": "^1.15.6", "hono": "", "next": ">=16.1.6", "nitro": "^3.0.260311-beta", "nitropack": "^2.13.1", "ofetch": "^1.5.1", "react": ">=19.2.4", "vite": "^7.0.0 || ^8.0.0" }, "optionalPeers": ["@nestjs/common", "@nuxt/kit", "ai", "elysia", "express", "fastify", "h3", "hono", "next", "nitro", "nitropack", "ofetch", "react", "vite"] }, "sha512-/0H3/DpAddjuWyMoFmU2LyJtAFRPQmwvjvY+wZGYrmsdJ196ITG6Gc4zqVhDIyg6QDdSAwiplM5V7zezrXxsgw=="],
 
     "@savoir/sdk/eslint": ["eslint@10.0.0", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.8.0", "@eslint-community/regexpp": "^4.12.2", "@eslint/config-array": "^0.23.0", "@eslint/config-helpers": "^0.5.2", "@eslint/core": "^1.1.0", "@eslint/plugin-kit": "^0.6.0", "@humanfs/node": "^0.16.6", "@humanwhocodes/module-importer": "^1.0.1", "@humanwhocodes/retry": "^0.4.2", "@types/estree": "^1.0.6", "ajv": "^6.12.4", "cross-spawn": "^7.0.6", "debug": "^4.3.2", "escape-string-regexp": "^4.0.0", "eslint-scope": "^9.1.0", "eslint-visitor-keys": "^5.0.0", "espree": "^11.1.0", "esquery": "^1.7.0", "esutils": "^2.0.2", "fast-deep-equal": "^3.1.3", "file-entry-cache": "^8.0.0", "find-up": "^5.0.0", "glob-parent": "^6.0.2", "ignore": "^5.2.0", "imurmurhash": "^0.1.4", "is-glob": "^4.0.0", "json-stable-stringify-without-jsonify": "^1.0.1", "minimatch": "^10.1.1", "natural-compare": "^1.4.0", "optionator": "^0.9.3" }, "peerDependencies": { "jiti": "*" }, "optionalPeers": ["jiti"], "bin": { "eslint": "bin/eslint.js" } }, "sha512-O0piBKY36YSJhlFSG8p9VUdPV/SxxS4FYDWVpr/9GJuMaepzwlf4J8I4ov1b+ySQfDTPhc3DtLaxcT1fN0yqCg=="],
 

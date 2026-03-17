@@ -9,7 +9,7 @@ import { callOptionsSchema } from '../core/schemas'
 import { sanitizeToolCallInputs } from '../core/sanitize'
 import { countConsecutiveToolSteps, shouldForceTextOnlyStep } from '../core/policy'
 import { webSearchTool } from '../tools/web-search'
-import type { AgentConfigData, AgentCallOptions, AgentExecutionContext, RoutingResult } from '../types'
+import type { AgentConfigData, AgentCallOptions, AgentExecutionContext, RoutingResult, WrapModelFn } from '../types'
 
 export interface SourceAgentOptions {
   tools: Record<string, unknown>
@@ -20,6 +20,7 @@ export interface SourceAgentOptions {
   requestId?: string
   /** Falls back to agentConfig.defaultModel then DEFAULT_MODEL */
   defaultModel?: string
+  wrapModel?: WrapModelFn
   onRouted?: (result: RoutingResult) => void
    
   onStepFinish?: (stepResult: any) => void
@@ -34,22 +35,24 @@ export function createSourceAgent({
   apiKey,
   requestId,
   defaultModel = DEFAULT_MODEL,
+  wrapModel,
   onRouted,
   onStepFinish,
   onFinish,
 }: SourceAgentOptions) {
   const id = requestId ?? crypto.randomUUID().slice(0, 8)
   let maxSteps = 15
+  const wrap = (model: string) => wrapModel ? wrapModel(model) : model
 
   return new ToolLoopAgent({
-    model: DEFAULT_MODEL,
+    model: wrap(DEFAULT_MODEL),
     callOptionsSchema,
     prepareCall: async ({ options, ...settings }) => {
       const modelOverride = (options as AgentCallOptions | undefined)?.model
       const customContext = (options as AgentCallOptions | undefined)?.context
 
       const [routerConfig, agentConfig] = await Promise.all([
-        routeQuestion(messages, id, apiKey),
+        routeQuestion(messages, id, apiKey, wrapModel),
         getAgentConfig(),
       ])
 
@@ -70,7 +73,7 @@ export function createSourceAgent({
 
       return {
         ...settings,
-        model: effectiveModel,
+        model: wrap(effectiveModel),
         instructions: applyComplexity(buildChatSystemPrompt(agentConfig), routerConfig),
         tools: { ...tools, web_search: webSearchTool },
         stopWhen: stepCountIs(effectiveMaxSteps),

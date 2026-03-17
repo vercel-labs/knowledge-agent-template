@@ -1,5 +1,7 @@
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
+import { useLogger } from 'evlog'
+import { createAILogger } from 'evlog/ai'
 import type { SourceOcrItem } from '#shared/utils/source-ocr'
 import { IMAGE_OPTIMIZATION_CONFIG } from '#shared/utils/file'
 import { optimizeImage } from '~~/server/utils/image/optimize'
@@ -117,7 +119,7 @@ function sanitizeSource(source: SourceOcrItem): SourceOcrItem | null {
   return null
 }
 
-async function extractFromImage(image: string) {
+async function extractFromImage(image: string, wrapModel: (model: string) => any) {
   const { ocr: ocrConfig } = IMAGE_OPTIMIZATION_CONFIG
   let optimizedImage: Buffer | string
 
@@ -130,7 +132,7 @@ async function extractFromImage(image: string) {
   }
 
   const { output } = await generateText({
-    model: 'google/gemini-3-flash',
+    model: wrapModel('google/gemini-3-flash'),
     output: Output.object({ schema: sourceOcrSchema }),
     messages: [
       {
@@ -145,9 +147,9 @@ async function extractFromImage(image: string) {
   return output?.sources || []
 }
 
-async function extractFromConfig(config: { filename: string, content: string }) {
+async function extractFromConfig(config: { filename: string, content: string }, wrapModel: (model: string) => any) {
   const { output } = await generateText({
-    model: 'google/gemini-2.5-flash-lite',
+    model: wrapModel('google/gemini-2.5-flash-lite'),
     output: Output.object({ schema: sourceOcrSchema }),
     messages: [
       {
@@ -162,6 +164,9 @@ async function extractFromConfig(config: { filename: string, content: string }) 
 export default defineEventHandler(async (event) => {
   await requireUserSession(event)
 
+  const requestLog = useLogger(event)
+  const ai = createAILogger(requestLog)
+
   const { images, configs } = await readValidatedBody(event, bodySchema.parse)
 
   if (images.length === 0 && configs.length === 0) {
@@ -169,8 +174,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const results = await Promise.all([
-    ...images.map(extractFromImage),
-    ...configs.map(extractFromConfig),
+    ...images.map(image => extractFromImage(image, ai.wrap)),
+    ...configs.map(config => extractFromConfig(config, ai.wrap)),
   ])
 
   const allSources = results.flat()

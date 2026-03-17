@@ -49,12 +49,15 @@ export interface AgentExecutionContext {
   customContext?: Record<string, unknown>
 }
 
+export type WrapModelFn = (model: string) => any
+
 export interface CreateAgentOptions {
   tools: Record<string, unknown>
   getAgentConfig: () => Promise<AgentConfigData>
   route: () => Promise<AgentConfig>
   buildPrompt: (routerConfig: AgentConfig, agentConfig: AgentConfigData) => string
   resolveModel?: (routerConfig: AgentConfig, agentConfig: AgentConfigData) => string
+  wrapModel?: WrapModelFn
   onRouted?: (result: RoutingResult) => void
   onStepFinish?: (stepResult: any) => void
   onFinish?: (result: any) => void

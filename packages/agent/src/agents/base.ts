@@ -14,14 +14,16 @@ export function createAgent({
   route,
   buildPrompt,
   resolveModel,
+  wrapModel,
   onRouted,
   onStepFinish,
   onFinish,
 }: CreateAgentOptions) {
   let maxSteps = 15
+  const wrap = (model: string) => wrapModel ? wrapModel(model) : model
 
   return new ToolLoopAgent({
-    model: DEFAULT_MODEL,
+    model: wrap(DEFAULT_MODEL),
     callOptionsSchema,
     prepareCall: async ({ options, ...settings }) => {
       const modelOverride = (options as AgentCallOptions | undefined)?.model
@@ -52,7 +54,7 @@ export function createAgent({
 
       return {
         ...settings,
-        model: effectiveModel,
+        model: wrap(effectiveModel),
         instructions: buildPrompt(routerConfig, agentConfig),
         tools: { ...tools, web_search: webSearchTool },
         stopWhen: stepCountIs(effectiveMaxSteps),

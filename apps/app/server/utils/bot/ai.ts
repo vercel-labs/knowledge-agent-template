@@ -89,11 +89,6 @@ export async function generateAIResponse(
       options: {},
     })
 
-    const durationMs = Date.now() - startTime
-    const { totalUsage } = result
-    log.info('bot', `Response generated (${durationMs}ms, ${result.steps.length} steps)`)
-    log.info('bot', `Tokens: ${totalUsage.inputTokens ?? 0} in / ${totalUsage.outputTokens ?? 0} out`)
-
     savoir.reportUsage(result, {
       startTime,
       metadata: context ? { source: context.source } : undefined,
@@ -125,9 +120,7 @@ export async function generateAIResponse(
 - Check the official documentation directly
 - Open a discussion for more complex questions`
   } catch (error) {
-    const durationMs = Date.now() - startTime
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    log.error('bot', `Agent failed after ${durationMs}ms: ${errorMessage}`)
 
     return `Sorry, I encountered an error while processing your question:
 
