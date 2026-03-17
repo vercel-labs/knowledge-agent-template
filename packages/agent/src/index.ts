@@ -1,3 +1,6 @@
+// Observability
+export { enterAIContext } from './core/observe'
+
 // Tools
 export { webSearchTool } from './tools/web-search'
 
@@ -31,6 +34,5 @@ export type {
   AgentExecutionContext,
   CreateAgentOptions,
   AgentCallOptions,
-  WrapModelFn,
 } from './types'
 export type { AgentConfig } from './router/schema'

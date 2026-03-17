@@ -5,7 +5,6 @@ import { kv } from '@nuxthub/kv'
 import { and, eq } from 'drizzle-orm'
 import { createSavoir } from '@savoir/sdk'
 import { useLogger } from 'evlog'
-import { createAILogger } from 'evlog/ai'
 import { createSourceAgent, createAdminAgent } from '@savoir/agent'
 import { generateTitle } from '../../utils/chat/generate-title'
 import { getAgentConfig } from '../../utils/agent-config'
@@ -83,12 +82,11 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const ai = createAILogger(requestLog)
     let effectiveModel = model
 
     const existingSessionId = await kv.get<string>(KV_KEYS.ACTIVE_SANDBOX_SESSION)
     if (existingSessionId) {
-      log.info('chat', `[${requestId}] Found active sandbox session ${existingSessionId}`)
+      requestLog.set({ sandboxSessionId: existingSessionId })
     }
 
     const cookie = getHeader(event, 'cookie')
@@ -101,7 +99,6 @@ export default defineEventHandler(async (event) => {
     const agent = isAdminChat
       ? createAdminAgent({
         tools: adminTools,
-        wrapModel: ai.wrap,
       })
       : createSourceAgent({
         tools: savoir.tools,
@@ -109,7 +106,6 @@ export default defineEventHandler(async (event) => {
         messages,
         defaultModel: model,
         requestId,
-        wrapModel: ai.wrap,
         onRouted: ({ routerConfig, agentConfig, effectiveModel: routedModel, effectiveMaxSteps }) => {
           effectiveModel = routedModel
           requestLog.set({
@@ -136,7 +132,6 @@ export default defineEventHandler(async (event) => {
         firstMessage: messages[0],
         chatId: id as string,
         requestId,
-        wrapModel: ai.wrap,
       })
       : null
 

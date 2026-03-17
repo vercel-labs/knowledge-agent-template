@@ -38,8 +38,5 @@
   "packageManager": "bun@1.2.22",
   "overrides": {
     "minimatch": "^10.0.1"
-  },
-  "patchedDependencies": {
-    "@nuxthub/core@0.10.6": "patches/@nuxthub%2Fcore@0.10.6.patch"
   }
 }

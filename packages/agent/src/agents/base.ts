@@ -6,6 +6,7 @@ import { callOptionsSchema } from '../core/schemas'
 import { sanitizeToolCallInputs } from '../core/sanitize'
 import { countConsecutiveToolSteps, shouldForceTextOnlyStep } from '../core/policy'
 import { webSearchTool } from '../tools/web-search'
+import { resolveModelWrapper } from '../core/observe'
 import type { AgentCallOptions, AgentExecutionContext, CreateAgentOptions } from '../types'
 
 export function createAgent({
@@ -14,13 +15,12 @@ export function createAgent({
   route,
   buildPrompt,
   resolveModel,
-  wrapModel,
   onRouted,
   onStepFinish,
   onFinish,
 }: CreateAgentOptions) {
   let maxSteps = 15
-  const wrap = (model: string) => wrapModel ? wrapModel(model) : model
+  const wrap = resolveModelWrapper()
 
   return new ToolLoopAgent({
     model: wrap(DEFAULT_MODEL),

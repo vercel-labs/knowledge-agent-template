@@ -100,6 +100,7 @@ export default defineNuxtConfig({
 
   nitro: {
     experimental: {
+      asyncContext: true,
       openAPI: true
     }
   },
