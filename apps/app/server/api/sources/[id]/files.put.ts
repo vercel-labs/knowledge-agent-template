@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
     const pathname = `sources/${id}/${filename}`
     const contentType = field.type || 'text/plain'
 
-    await blob.put(pathname, field.data, { contentType })
+    await blob.put(pathname, new Blob([field.data], { type: contentType }), { contentType })
     results.push({ filename, pathname, size: field.data.length })
   }
 
