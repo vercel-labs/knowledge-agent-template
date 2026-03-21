@@ -1,6 +1,6 @@
 {
-  "id": "c465a693-296d-46d6-9d12-004b73774991",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "457ef60e-1eb0-4590-b1d4-a08b849d4c70",
+  "prevId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -335,6 +335,13 @@
           "primaryKey": true,
           "notNull": true
         },
+        "configId": {
+          "name": "configId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'default'"
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -347,6 +354,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "referenceId": {
+          "name": "referenceId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "prefix": {
           "name": "prefix",
           "type": "text",
@@ -358,24 +371,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "configId": {
-          "name": "configId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "referenceId": {
-          "name": "referenceId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "refillInterval": {
           "name": "refillInterval",
@@ -474,6 +469,36 @@
         }
       },
       "indexes": {
+        "apikey_configId_idx": {
+          "name": "apikey_configId_idx",
+          "columns": [
+            {
+              "expression": "configId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "apikey_referenceId_idx": {
+          "name": "apikey_referenceId_idx",
+          "columns": [
+            {
+              "expression": "referenceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "apikey_key_idx": {
           "name": "apikey_key_idx",
           "columns": [
@@ -488,38 +513,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "apikey_userId_idx": {
-          "name": "apikey_userId_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
-      "foreignKeys": {
-        "apikey_userId_user_id_fk": {
-          "name": "apikey_userId_user_id_fk",
-          "tableFrom": "apikey",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

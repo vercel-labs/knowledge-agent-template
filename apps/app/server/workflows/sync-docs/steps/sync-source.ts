@@ -9,7 +9,7 @@ import { getStepMetadata, RetryableError } from 'workflow'
 import { log } from 'evlog'
 import { Sandbox } from '@vercel/sandbox'
 import type { Source, SyncSourceResult } from '../types'
-import { syncGitHubSource, syncYouTubeSource } from '../../../utils/sandbox/source-sync'
+import { syncFileSource, syncGitHubSource, syncYouTubeSource } from '../../../utils/sandbox/source-sync'
 
 export async function stepSyncSource(
   sandboxId: string,
@@ -40,8 +40,9 @@ export async function stepSyncSource(
     } else {
       result = await syncYouTubeSource(sandbox, source, config.youtubeApiKey)
     }
+  } else if (source.type === 'file') {
+    result = await syncFileSource(sandbox, source)
   } else {
-    // This branch handles future source types - cast to Source for access
     const unknownSource = source as Source
     result = {
       sourceId: unknownSource.id,

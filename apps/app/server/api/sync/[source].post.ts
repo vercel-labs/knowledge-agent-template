@@ -1,9 +1,11 @@
+import { blob } from 'hub:blob'
 import { start } from 'workflow/api'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '@nuxthub/db'
 import { syncDocumentation } from '../../workflows/sync-docs'
 import type { Source } from '../../workflows/sync-docs'
+import type { FileSourceEntry } from '../../workflows/sync-docs/types'
 import { getSnapshotRepoConfig } from '../../utils/sandbox/snapshot-config'
 
 const paramsSchema = z.object({
@@ -47,8 +49,34 @@ export default defineEventHandler(async (event) => {
       outputPath: dbSource.outputPath || dbSource.id,
       readmeOnly: dbSource.readmeOnly ?? false,
     }
+  } else if (dbSource.type === 'file') {
+    const prefix = `sources/${dbSource.id}/`
+    const { blobs } = await blob.list({ prefix })
+
+    const files: FileSourceEntry[] = []
+    for (const blobItem of blobs) {
+      const response = await blob.get(blobItem.pathname)
+      if (response) {
+        files.push({
+          filename: blobItem.pathname.replace(prefix, ''),
+          content: await response.text(),
+        })
+      }
+    }
+
+    if (blobs.length > 0) {
+      await blob.del(blobs.map(b => b.pathname))
+    }
+
+    source = {
+      id: dbSource.id,
+      type: 'file',
+      label: dbSource.label,
+      basePath: dbSource.basePath || '/files',
+      outputPath: dbSource.outputPath || dbSource.id,
+      files,
+    }
   } else {
-    // YouTube source
     source = {
       id: dbSource.id,
       type: 'youtube',

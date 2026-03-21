@@ -1,9 +1,11 @@
+import { blob } from 'hub:blob'
 import { kv } from '@nuxthub/kv'
 import { start } from 'workflow/api'
 import { z } from 'zod'
 import { db } from '@nuxthub/db'
 import { syncDocumentation } from '../../workflows/sync-docs'
 import type { Source } from '../../workflows/sync-docs'
+import type { FileSourceEntry } from '../../workflows/sync-docs/types'
 import { KV_KEYS } from '../../utils/sandbox/types'
 import { getSnapshotRepoConfig } from '../../utils/sandbox/snapshot-config'
 
@@ -31,7 +33,7 @@ export default defineEventHandler(async (event) => {
 
   const dbSources = await db.query.sources.findMany()
 
-  let sources: Source[] = dbSources.map((s): Source => {
+  let sources: Source[] = await Promise.all(dbSources.map(async (s): Promise<Source> => {
     if (s.type === 'github') {
       return {
         id: s.id,
@@ -46,7 +48,36 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // YouTube source
+    if (s.type === 'file') {
+      const prefix = `sources/${s.id}/`
+      const { blobs } = await blob.list({ prefix })
+
+      const files: FileSourceEntry[] = []
+      for (const blobItem of blobs) {
+        const response = await blob.get(blobItem.pathname)
+        if (response) {
+          files.push({
+            filename: blobItem.pathname.replace(prefix, ''),
+            content: await response.text(),
+          })
+        }
+      }
+
+      // Clean up blob — content is now embedded in the workflow payload
+      if (blobs.length > 0) {
+        await blob.del(blobs.map(b => b.pathname))
+      }
+
+      return {
+        id: s.id,
+        type: 'file' as const,
+        label: s.label,
+        basePath: s.basePath || '/files',
+        outputPath: s.outputPath || s.id,
+        files,
+      }
+    }
+
     return {
       id: s.id,
       type: 'youtube' as const,
@@ -57,7 +88,7 @@ export default defineEventHandler(async (event) => {
       maxVideos: s.maxVideos || 50,
       outputPath: s.outputPath || s.id,
     }
-  })
+  }))
 
   if (body?.sourceFilter) {
     sources = sources.filter(s => s.id === body.sourceFilter)

@@ -2,7 +2,7 @@ import type { Sandbox } from '@vercel/sandbox'
 import { createError, log } from 'evlog'
 import { youtube } from '@googleapis/youtube'
 import { YoutubeTranscript } from 'youtube-transcript'
-import type { GitHubSource, Source, SyncSourceResult, YouTubeSource } from '../../workflows/sync-docs/types'
+import type { FileSource, GitHubSource, Source, SyncSourceResult, YouTubeSource } from '../../workflows/sync-docs/types'
 
 interface YouTubeVideo {
   id: string
@@ -355,6 +355,108 @@ function slugify(text: string): string {
     .slice(0, 50)
 }
 
+/** Writes pre-loaded file contents to sandbox */
+export async function syncFileSource(
+  sandbox: Sandbox,
+  source: FileSource,
+): Promise<SyncSourceResult> {
+  const basePath = source.basePath || '/files'
+  const outputPath = source.outputPath || source.id
+  const targetDir = `/vercel/sandbox${basePath}/${outputPath}`
+
+  try {
+    log.info('sync', `Starting file sync for "${source.label}"`)
+
+    await sandbox.runCommand({
+      cmd: 'mkdir',
+      args: ['-p', targetDir],
+      cwd: '/vercel/sandbox',
+    })
+
+    if (source.files.length === 0) {
+      log.info('sync', `No files provided for "${source.label}"`)
+      return { sourceId: source.id, label: source.label, success: true, fileCount: 0 }
+    }
+
+    let fileCount = 0
+
+    for (const entry of source.files) {
+      try {
+        const filepath = `${targetDir}/${entry.filename}`
+
+        await sandbox.runCommand({
+          cmd: 'sh',
+          args: ['-c', `cat > '${filepath}' << 'EOFMARKER'\n${entry.content}\nEOFMARKER`],
+          cwd: '/vercel/sandbox',
+        })
+
+        fileCount++
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        log.warn('sync', `Failed to sync file ${entry.filename}: ${errorMessage}`)
+      }
+    }
+
+    log.info('sync', `File sync completed for "${source.label}": ${fileCount} files`)
+
+    return { sourceId: source.id, label: source.label, success: true, fileCount }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    log.error('sync', `File sync failed for "${source.label}": ${errorMessage}`)
+    return { sourceId: source.id, label: source.label, success: false, fileCount: 0, error: errorMessage }
+  }
+}
+
+/** Removes directories in the sandbox that don't belong to any active source */
+export async function cleanupStaleSources(
+  sandbox: Sandbox,
+  sources: Source[],
+): Promise<string[]> {
+  const expectedDirs = new Map<string, Set<string>>()
+
+  for (const source of sources) {
+    const basePath = source.basePath || (source.type === 'youtube' ? '/youtube' : source.type === 'file' ? '/files' : '/docs')
+    const outputPath = source.outputPath || source.id
+    if (!expectedDirs.has(basePath)) {
+      expectedDirs.set(basePath, new Set())
+    }
+    expectedDirs.get(basePath)!.add(outputPath)
+  }
+
+  const removed: string[] = []
+  const basePaths = new Set(['/docs', '/files', '/youtube', ...expectedDirs.keys()])
+
+  for (const basePath of basePaths) {
+    const fullBase = `/vercel/sandbox${basePath}`
+    const result = await sandbox.runCommand({
+      cmd: 'sh',
+      args: ['-c', `[ -d '${fullBase}' ] && ls -1 '${fullBase}' || true`],
+      cwd: '/vercel/sandbox',
+    })
+
+    const output = (await result.stdout()).trim()
+    if (!output) continue
+
+    const existingDirs = output.split('\n').filter(Boolean)
+    const expected = expectedDirs.get(basePath) || new Set()
+
+    for (const dir of existingDirs) {
+      if (!expected.has(dir)) {
+        const staleDir = `${fullBase}/${dir}`
+        log.info('sync', `Removing stale source directory: ${staleDir}`)
+        await sandbox.runCommand({
+          cmd: 'rm',
+          args: ['-rf', staleDir],
+          cwd: '/vercel/sandbox',
+        })
+        removed.push(`${basePath}/${dir}`)
+      }
+    }
+  }
+
+  return removed
+}
+
 /** Syncs all sources sequentially, returns array of results */
 export async function syncSources(
   sandbox: Sandbox,
@@ -380,6 +482,8 @@ export async function syncSources(
       } else {
         result = await syncYouTubeSource(sandbox, source, config.youtubeApiKey)
       }
+    } else if (source.type === 'file') {
+      result = await syncFileSource(sandbox, source)
     } else {
       const unknownSource = source as Source
       result = {

@@ -1,7 +1,11 @@
 <script setup lang="ts">
+type SourceType = 'github' | 'youtube' | 'file'
+
+const ALLOWED_EXTENSIONS = ['.md', '.mdx', '.txt', '.yml', '.yaml', '.json']
+
 interface SourceData {
   id: string
-  type: 'github' | 'youtube'
+  type: SourceType
   label: string
   repo: string | null
   branch: string | null
@@ -13,8 +17,14 @@ interface SourceData {
   maxVideos: number | null
 }
 
+interface PendingFile {
+  file: File
+  id: string
+}
+
 const props = defineProps<{
   source?: SourceData | null
+  defaultType?: SourceType
 }>()
 
 const emit = defineEmits<{
@@ -29,13 +39,18 @@ const isSubmitting = ref(false)
 const isEditing = computed(() => !!props.source)
 
 const form = ref({
-  type: props.source?.type || 'github' as 'github' | 'youtube',
+  type: (props.source?.type || props.defaultType || 'github') as SourceType,
   label: props.source?.label || '',
   repo: props.source?.repo || '',
   branch: props.source?.branch || 'main',
   contentPath: props.source?.contentPath || '',
   outputPath: props.source?.outputPath || '',
-  basePath: props.source?.type === 'youtube' ? '/youtube' : '/docs',
+  basePath: (() => {
+    const type = props.source?.type || props.defaultType || 'github'
+    if (type === 'youtube') return '/youtube'
+    if (type === 'file') return '/files'
+    return '/docs'
+  })(),
   readmeOnly: props.source?.readmeOnly || false,
   channelId: props.source?.channelId || '',
   handle: props.source?.handle || '',
@@ -45,6 +60,7 @@ const form = ref({
 const typeOptions = [
   { label: 'GitHub Repository', value: 'github', icon: 'i-simple-icons-github' },
   { label: 'YouTube Channel', value: 'youtube', icon: 'i-simple-icons-youtube' },
+  { label: 'File Upload', value: 'file', icon: 'i-lucide-file-text' },
 ]
 
 function slugify(text: string): string {
@@ -62,15 +78,89 @@ const effectiveOutputPath = computed(() => {
   return form.value.outputPath || outputFolderFromLabel.value
 })
 
+const defaultBasePath = computed(() => {
+  if (form.value.type === 'youtube') return '/youtube'
+  if (form.value.type === 'file') return '/files'
+  return '/docs'
+})
+
 const snapshotPreviewPath = computed(() => {
-  const base = form.value.basePath || (form.value.type === 'youtube' ? '/youtube' : '/docs')
+  const base = form.value.basePath || defaultBasePath.value
   const folder = effectiveOutputPath.value || 'folder-name'
   return `${base}/${folder}/`
 })
 
 watch(() => form.value.type, (newType) => {
-  form.value.basePath = newType === 'youtube' ? '/youtube' : '/docs'
+  if (newType === 'youtube') form.value.basePath = '/youtube'
+  else if (newType === 'file') form.value.basePath = '/files'
+  else form.value.basePath = '/docs'
 })
+
+// File upload state
+const pendingFiles = ref<PendingFile[]>([])
+const isDraggingOver = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+function isAllowedFile(filename: string): boolean {
+  return ALLOWED_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext))
+}
+
+function addFiles(fileList: FileList | File[]) {
+  const newFiles = Array.from(fileList).filter((file) => {
+    if (!isAllowedFile(file.name)) {
+      toast.add({ title: `${file.name} skipped`, description: `Only ${ALLOWED_EXTENSIONS.join(', ')} files are accepted`, icon: 'i-lucide-alert-triangle', color: 'warning' })
+      return false
+    }
+    if (pendingFiles.value.some(pf => pf.file.name === file.name)) {
+      return false
+    }
+    return true
+  })
+
+  pendingFiles.value = [
+    ...pendingFiles.value,
+    ...newFiles.map(file => ({ file, id: crypto.randomUUID() })),
+  ]
+}
+
+function removePendingFile(id: string) {
+  pendingFiles.value = pendingFiles.value.filter(f => f.id !== id)
+}
+
+function onDrop(e: DragEvent) {
+  isDraggingOver.value = false
+  if (e.dataTransfer?.files) {
+    addFiles(e.dataTransfer.files)
+  }
+}
+
+function onFileInput(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files) {
+    addFiles(input.files)
+    input.value = ''
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+async function uploadFilesToSource(sourceId: string) {
+  if (pendingFiles.value.length === 0) return
+
+  const formData = new FormData()
+  for (const pf of pendingFiles.value) {
+    formData.append('files', pf.file)
+  }
+
+  await $fetch(`/api/sources/${sourceId}/files`, {
+    method: 'PUT',
+    body: formData,
+  })
+}
 
 async function save() {
   isSubmitting.value = true
@@ -83,7 +173,13 @@ async function save() {
       outputPath: form.value.outputPath || outputFolderFromLabel.value,
     }
 
-    await $fetch(url, { method, body })
+    const result = await $fetch<{ id: string }>(url, { method, body })
+
+    if (form.value.type === 'file' && pendingFiles.value.length > 0) {
+      const sourceId = isEditing.value ? props.source!.id : result.id
+      await uploadFilesToSource(sourceId)
+    }
+
     toast.add({
       title: isEditing.value ? 'Source updated' : 'Source created',
       icon: 'i-lucide-check',
@@ -275,6 +371,60 @@ async function save() {
                 <p class="text-xs text-muted">
                   Between 1 and 500
                 </p>
+              </div>
+            </div>
+          </template>
+
+          <template v-if="form.type === 'file'">
+            <div
+              class="relative rounded-lg border-2 border-dashed transition-colors p-6"
+              :class="isDraggingOver ? 'border-primary bg-primary/5' : 'border-default hover:border-muted'"
+              @dragover.prevent="isDraggingOver = true"
+              @dragleave.prevent="isDraggingOver = false"
+              @drop.prevent="onDrop"
+            >
+              <input
+                ref="fileInputRef"
+                type="file"
+                :accept="ALLOWED_EXTENSIONS.join(',')"
+                multiple
+                class="hidden"
+                @change="onFileInput"
+              >
+              <div class="flex flex-col items-center gap-2 text-center">
+                <div class="size-10 rounded-lg bg-elevated flex items-center justify-center">
+                  <UIcon name="i-lucide-upload" class="size-5 text-muted" />
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-highlighted">
+                    Drop files here or
+                    <button type="button" class="text-primary hover:underline" @click="fileInputRef?.click()">
+                      browse
+                    </button>
+                  </p>
+                  <p class="text-xs text-muted mt-1">
+                    {{ ALLOWED_EXTENSIONS.join(', ') }} files up to 8MB
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="pendingFiles.length > 0" class="flex flex-col gap-1">
+              <div
+                v-for="pf in pendingFiles"
+                :key="pf.id"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg bg-elevated/50"
+              >
+                <UIcon name="i-lucide-file-text" class="size-4 text-muted shrink-0" />
+                <span class="text-sm text-highlighted truncate flex-1">{{ pf.file.name }}</span>
+                <span class="text-xs text-muted shrink-0">{{ formatFileSize(pf.file.size) }}</span>
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="removePendingFile(pf.id)"
+                />
               </div>
             </div>
           </template>

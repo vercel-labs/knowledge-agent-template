@@ -7,9 +7,10 @@
  * This workflow is composed of granular steps for better retry semantics
  * and observability:
  * 1. Create sandbox from git repository
- * 2. Sync each source (parallel execution)
- * 3. Push changes to git
- * 4. Take snapshot
+ * 2. Cleanup stale source directories (from deleted sources)
+ * 3. Sync each source (parallel execution)
+ * 4. Push changes to git
+ * 5. Take snapshot
  */
 
 import { FatalError } from 'workflow'
@@ -17,6 +18,7 @@ import { log } from 'evlog'
 import type { Source, SyncConfig, SyncResult, SyncSourceResult } from './types'
 import {
   stepCreateSandbox,
+  stepCleanupStale,
   stepSyncSource,
   stepPushChanges,
   stepTakeSnapshot,
@@ -53,7 +55,10 @@ export async function syncDocumentation(
   // Step 1: Create sandbox
   const { sandboxId } = await stepCreateSandbox(config)
 
-  // Step 2: Sync all sources in parallel
+  // Step 2: Remove directories from deleted sources
+  await stepCleanupStale(sandboxId, filteredSources)
+
+  // Step 3: Sync all sources in parallel
   // Each source is its own step for granular retry and observability
   const results = await Promise.all(
     filteredSources.map(source =>
@@ -64,7 +69,7 @@ export async function syncDocumentation(
     ),
   )
 
-  // Step 3: Push changes to git
+  // Step 4: Push changes to git
   await stepPushChanges(
     sandboxId,
     {
@@ -75,7 +80,7 @@ export async function syncDocumentation(
     results,
   )
 
-  // Step 4: Take snapshot
+  // Step 5: Take snapshot
   const { snapshotId } = await stepTakeSnapshot(sandboxId)
 
   // Compute summary

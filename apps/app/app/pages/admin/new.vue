@@ -10,10 +10,15 @@ interface PendingFile {
   type: 'image' | 'config'
 }
 
+interface SourceFiles {
+  file: File
+  id: string
+}
+
 interface ExtractedSource {
   id: string
   data: {
-    type: 'github' | 'youtube'
+    type: 'github' | 'youtube' | 'file'
     label: string
     repo: string
     branch: string
@@ -26,10 +31,12 @@ interface ExtractedSource {
     maxVideos: number
   }
   confidence: number
+  uploadFiles?: SourceFiles[]
 }
 
 const CONFIG_EXTENSIONS = ['.ts', '.js', '.json', '.yml', '.yaml', '.toml']
 const CONFIG_ACCEPT = CONFIG_EXTENSIONS.join(',')
+const SOURCE_FILE_EXTENSIONS = ['.md', '.mdx', '.txt', '.yml', '.yaml', '.json']
 
 const router = useRouter()
 const route = useRoute()
@@ -39,8 +46,8 @@ const { showError } = useErrorToast()
 const { data: sourcesData } = useLazyFetch('/api/sources')
 const youtubeEnabled = computed(() => sourcesData.value?.youtubeEnabled ?? false)
 
-const requestedType = route.query.type === 'youtube' ? 'youtube' : 'github'
-const initialType = (requestedType === 'youtube' && !youtubeEnabled.value ? 'github' : requestedType) as 'github' | 'youtube'
+const requestedType = (['youtube', 'file'].includes(route.query.type as string) ? route.query.type : 'github') as 'github' | 'youtube' | 'file'
+const initialType = (requestedType === 'youtube' && !youtubeEnabled.value ? 'github' : requestedType) as 'github' | 'youtube' | 'file'
 
 const isSubmitting = ref(false)
 const isExtracting = ref(false)
@@ -57,7 +64,7 @@ const sources = ref<ExtractedSource[]>([
       branch: 'main',
       contentPath: '',
       outputPath: '',
-      basePath: initialType === 'youtube' ? '/youtube' : '/docs',
+      basePath: initialType === 'youtube' ? '/youtube' : initialType === 'file' ? '/files' : '/docs',
       readmeOnly: false,
       channelId: '',
       handle: '',
@@ -75,14 +82,15 @@ watch(pendingFiles, (files) => {
 })
 
 function createSourceData(item?: SourceOcrItem) {
+  const type = (item?.type || 'github') as 'github' | 'youtube' | 'file'
   return {
-    type: (item?.type || 'github') as 'github' | 'youtube',
+    type,
     label: item?.label || '',
     repo: item?.repo || '',
     branch: item?.branch || 'main',
     contentPath: item?.contentPath || '',
     outputPath: '',
-    basePath: item?.type === 'youtube' ? '/youtube' : '/docs',
+    basePath: type === 'youtube' ? '/youtube' : type === 'file' ? '/files' : '/docs',
     readmeOnly: false,
     channelId: item?.channelId || '',
     handle: item?.handle || '',
@@ -248,6 +256,9 @@ function isSourceEmpty(source: ExtractedSource): boolean {
   if (d.type === 'github') {
     return !d.label && !d.repo && !d.contentPath
   }
+  if (d.type === 'file') {
+    return !d.label && (!source.uploadFiles || source.uploadFiles.length === 0)
+  }
   return !d.label && !d.channelId && !d.handle
 }
 
@@ -284,9 +295,37 @@ function getEffectiveOutputPath(source: ExtractedSource) {
 }
 
 function getSnapshotPreview(source: ExtractedSource) {
-  const base = source.data.basePath || (source.data.type === 'youtube' ? '/youtube' : '/docs')
+  const { type } = source.data
+  const base = source.data.basePath || (type === 'youtube' ? '/youtube' : type === 'file' ? '/files' : '/docs')
   const folder = getEffectiveOutputPath(source) || 'folder-name'
   return `${base}/${folder}/`
+}
+
+function isAllowedSourceFile(filename: string): boolean {
+  return SOURCE_FILE_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext))
+}
+
+function addSourceFiles(source: ExtractedSource, fileList: FileList | File[]) {
+  const existing = source.uploadFiles || []
+  const newFiles = Array.from(fileList).filter((file) => {
+    if (!isAllowedSourceFile(file.name)) return false
+    if (existing.some(f => f.file.name === file.name)) return false
+    return true
+  })
+  source.uploadFiles = [
+    ...existing,
+    ...newFiles.map(file => ({ file, id: crypto.randomUUID() })),
+  ]
+}
+
+function removeSourceFile(source: ExtractedSource, fileId: string) {
+  source.uploadFiles = (source.uploadFiles || []).filter(f => f.id !== fileId)
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function getFileIcon(file: PendingFile) {
@@ -316,13 +355,25 @@ async function saveAll() {
 
   for (const source of validSources) {
     try {
-      await $fetch('/api/sources', {
+      const result = await $fetch<{ id: string }>('/api/sources', {
         method: 'POST',
         body: {
           ...source.data,
           outputPath: getEffectiveOutputPath(source),
         },
       })
+
+      if (source.data.type === 'file' && source.uploadFiles && source.uploadFiles.length > 0) {
+        const formData = new FormData()
+        for (const sf of source.uploadFiles) {
+          formData.append('files', sf.file)
+        }
+        await $fetch(`/api/sources/${result.id}/files`, {
+          method: 'PUT',
+          body: formData,
+        })
+      }
+
       created++
     } catch (error) {
       toast.add({
@@ -352,11 +403,13 @@ async function saveAll() {
 }
 
 const typeOptions = computed(() => {
-  const options = [{ label: 'GitHub', value: 'github', icon: 'i-simple-icons-github' },]
+  const options = [{ label: 'GitHub', value: 'github', icon: 'i-simple-icons-github' }]
 
   if (youtubeEnabled.value) {
     options.push({ label: 'YouTube', value: 'youtube', icon: 'i-simple-icons-youtube' })
   }
+
+  options.push({ label: 'File Upload', value: 'file', icon: 'i-lucide-file-text' })
 
   return options
 })
@@ -372,7 +425,7 @@ const validSourcesCount = computed(() => sources.value.filter(s => s.data.label)
         Add Sources
       </h1>
       <p class="text-sm text-muted">
-        Sources provide context to the AI. Connect your GitHub docs{{ youtubeEnabled ? ' or YouTube channels' : '' }}.
+        Sources provide context to the AI. Connect your GitHub docs{{ youtubeEnabled ? ', YouTube channels,' : '' }} or upload files.
       </p>
     </header>
 
@@ -495,7 +548,7 @@ const validSourcesCount = computed(() => sources.value.filter(s => s.data.label)
                 :items="typeOptions"
                 value-key="value"
                 size="sm"
-                @update:model-value="source.data.basePath = $event === 'youtube' ? '/youtube' : '/docs'"
+                @update:model-value="source.data.basePath = $event === 'youtube' ? '/youtube' : $event === 'file' ? '/files' : '/docs'"
               />
               <div class="col-span-2">
                 <UInput
@@ -543,7 +596,7 @@ const validSourcesCount = computed(() => sources.value.filter(s => s.data.label)
               </div>
             </template>
 
-            <template v-else>
+            <template v-else-if="source.data.type === 'youtube'">
               <div class="grid grid-cols-2 gap-2">
                 <UInput
                   v-model="source.data.channelId"
@@ -559,6 +612,55 @@ const validSourcesCount = computed(() => sources.value.filter(s => s.data.label)
                   icon="i-lucide-at-sign"
                   autocomplete="off"
                 />
+              </div>
+            </template>
+
+            <template v-else-if="source.data.type === 'file'">
+              <div
+                class="relative p-4 border border-dashed rounded-md transition-colors cursor-pointer"
+                :class="[
+                  isDragging ? 'border-neutral-900 bg-neutral-900/5 dark:border-white dark:bg-white/5' : 'border-default hover:border-muted hover:bg-elevated/30',
+                ]"
+                @click="($refs[`fileInput-${source.id}`] as HTMLInputElement)?.click()"
+                @drop.prevent="isDragging = false; addSourceFiles(source, $event.dataTransfer?.files || [])"
+                @dragover.prevent="isDragging = true"
+                @dragleave.self="isDragging = false"
+              >
+                <input
+                  :ref="`fileInput-${source.id}`"
+                  type="file"
+                  :accept="SOURCE_FILE_EXTENSIONS.join(',')"
+                  multiple
+                  class="hidden"
+                  @change="addSourceFiles(source, ($event.target as HTMLInputElement).files || []); ($event.target as HTMLInputElement).value = ''"
+                >
+                <div class="text-center">
+                  <UIcon name="i-lucide-upload" class="size-4 text-muted mx-auto mb-1" aria-hidden="true" />
+                  <p class="text-xs text-muted">
+                    Drop .md, .mdx, .txt, .yml, .json files here
+                  </p>
+                </div>
+              </div>
+
+              <div v-if="source.uploadFiles?.length" class="space-y-1 mt-2">
+                <div
+                  v-for="sf in source.uploadFiles"
+                  :key="sf.id"
+                  class="flex items-center justify-between gap-2 px-2 py-1 rounded bg-elevated text-xs"
+                >
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <UIcon name="i-lucide-file-text" class="size-3 text-muted shrink-0" aria-hidden="true" />
+                    <span class="truncate text-highlighted">{{ sf.file.name }}</span>
+                    <span class="text-muted shrink-0">{{ formatFileSize(sf.file.size) }}</span>
+                  </div>
+                  <button
+                    class="text-muted hover:text-error transition-colors shrink-0"
+                    aria-label="Remove file"
+                    @click.stop="removeSourceFile(source, sf.id)"
+                  >
+                    <UIcon name="i-lucide-x" class="size-3" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </template>
 

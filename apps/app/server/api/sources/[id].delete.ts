@@ -1,3 +1,4 @@
+import { blob } from 'hub:blob'
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -23,6 +24,14 @@ export default defineEventHandler(async (event) => {
 
   if (!deleted) {
     throw createError({ statusCode: 404, message: 'Source not found', data: { why: 'No source exists with this ID', fix: 'Verify the source ID from the sources list' } })
+  }
+
+  if (deleted.type === 'file') {
+    const prefix = `sources/${id}/`
+    const { blobs } = await blob.list({ prefix })
+    if (blobs.length > 0) {
+      await blob.del(blobs.map(b => b.pathname))
+    }
   }
 
   return { success: true }

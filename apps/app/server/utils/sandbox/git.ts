@@ -136,7 +136,7 @@ export async function pushChanges(
       return { success: true, hasChanges: false }
     }
 
-    await addFiles(sandbox, 'docs/')
+    await addFiles(sandbox, '.')
     await commit(sandbox, options.commitMessage)
     await push(sandbox, options.repoUrl, options.branch)
 

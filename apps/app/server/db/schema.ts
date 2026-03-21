@@ -47,7 +47,7 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 
 export const sources = pgTable('sources', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  type: text('type', { enum: ['github', 'youtube'] }).notNull(),
+  type: text('type', { enum: ['github', 'youtube', 'file'] }).notNull(),
   label: text('label').notNull(),
   basePath: text('base_path').default('/docs'),
   repo: text('repo'),

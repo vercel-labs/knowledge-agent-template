@@ -2,7 +2,7 @@ import { db, schema } from '@nuxthub/db'
 import { z } from 'zod'
 
 const bodySchema = z.object({
-  type: z.enum(['github', 'youtube']),
+  type: z.enum(['github', 'youtube', 'file']),
   label: z.string().min(1),
   basePath: z.string().optional().default('/docs'),
   repo: z.string().optional(),

@@ -3,7 +3,7 @@ import { useTimeoutFn } from '@vueuse/core'
 
 interface SourceData {
   id: string
-  type: 'github' | 'youtube'
+  type: 'github' | 'youtube' | 'file'
   label: string
   repo: string | null
   branch: string | null
@@ -50,6 +50,7 @@ const sourceUrl = computed(() => {
 
 const sourceIdentifier = computed(() => {
   if (props.source.type === 'github') return props.source.repo
+  if (props.source.type === 'file') return 'Uploaded files'
   return props.source.handle || props.source.channelId
 })
 </script>
@@ -106,7 +107,7 @@ const sourceIdentifier = computed(() => {
               README only
             </div>
           </template>
-          <template v-else>
+          <template v-else-if="source.type === 'youtube'">
             <div
               v-if="source.maxVideos"
               class="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-[11px] font-medium text-muted bg-muted"
@@ -114,6 +115,14 @@ const sourceIdentifier = computed(() => {
               <UIcon name="i-lucide-video" class="size-3 opacity-60" />
               {{ source.maxVideos }} videos max
             </div>
+          </template>
+          <template v-else-if="source.type === 'file'">
+            <UTooltip v-if="source.outputPath" text="Output folder in snapshot" :delay-open="200">
+              <div class="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-[11px] font-medium text-muted bg-muted">
+                <UIcon name="i-lucide-folder-output" class="size-3 opacity-60" />
+                {{ source.outputPath }}
+              </div>
+            </UTooltip>
           </template>
         </div>
       </div>

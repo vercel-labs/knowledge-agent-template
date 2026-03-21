@@ -32,7 +32,21 @@ export interface YouTubeSource {
   outputPath: string
 }
 
-export type Source = GitHubSource | YouTubeSource
+export interface FileSourceEntry {
+  filename: string
+  content: string
+}
+
+export interface FileSource {
+  id: string
+  type: 'file'
+  label: string
+  basePath: string
+  outputPath: string
+  files: FileSourceEntry[]
+}
+
+export type Source = GitHubSource | YouTubeSource | FileSource
 
 export interface SyncSourceResult {
   sourceId: string
