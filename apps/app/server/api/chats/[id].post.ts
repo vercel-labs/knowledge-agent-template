@@ -5,7 +5,7 @@ import { kv } from '@nuxthub/kv'
 import { and, eq } from 'drizzle-orm'
 import { createSavoir } from '@savoir/sdk'
 import { useLogger } from 'evlog'
-import { createSourceAgent, createAdminAgent } from '@savoir/agent'
+import { createSourceAgent, createAdminAgent, setAIGatewayMetadata } from '@savoir/agent'
 import { generateTitle } from '../../utils/chat/generate-title'
 import { getAgentConfig } from '../../utils/agent-config'
 import { KV_KEYS } from '../../utils/sandbox/types'
@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
   try {
     const { user } = await requireUserSession(event)
     requestLog.set({ userId: user.id })
+    setAIGatewayMetadata({ userId: user.id, tags: ['web-chat'] })
 
     const { id } = await getValidatedRouterParams(event, z.object({
       id: z.string(),

@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { log } from 'evlog'
-import { ROUTER_MODEL, getModelFallbackOptions } from '@savoir/agent'
+import { ROUTER_MODEL, buildProviderOptions, resolveGatewayMetadata } from '@savoir/agent'
 
 interface GenerateTitleOptions {
   firstMessage: UIMessage
@@ -20,7 +20,7 @@ export async function generateTitle({ firstMessage, chatId, requestId }: Generat
 Rules: no quotes, no colons, no punctuation, plain text only.
 If the message is a simple greeting (hi, hey, hello, etc.), respond with a generic title like "New conversation" or "Quick chat".`,
       prompt: JSON.stringify(firstMessage),
-      providerOptions: getModelFallbackOptions(ROUTER_MODEL),
+      providerOptions: buildProviderOptions(ROUTER_MODEL, resolveGatewayMetadata()),
     })
 
     await db.update(schema.chats).set({ title }).where(eq(schema.chats.id, chatId))

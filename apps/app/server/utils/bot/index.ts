@@ -37,7 +37,7 @@ async function handleBotResponse(thread: Thread, message: Message) {
       })
       : { platform: adapter.name, title: '', body: '', labels: [], state: '', source: adapter.name }
 
-    const response = await generateAIResponse(message.text, context)
+    const response = await generateAIResponse(message.text, context, message.author.userName)
 
     await thread.post(response)
 

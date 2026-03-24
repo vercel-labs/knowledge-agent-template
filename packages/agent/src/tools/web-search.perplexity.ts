@@ -1,6 +1,8 @@
 import { generateText, tool } from 'ai'
 import { createGateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
+import { resolveGatewayMetadata } from '../core/observe'
+import { buildGatewayProviderOptions } from '../router/schema'
 
 const gateway = createGateway()
 
@@ -18,6 +20,7 @@ export const webSearchTool = tool({
         model: gateway('perplexity/sonar'),
         prompt: query,
         abortSignal,
+        providerOptions: buildGatewayProviderOptions(resolveGatewayMetadata()),
       })
 
       const urlSources = sources

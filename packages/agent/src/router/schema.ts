@@ -44,3 +44,28 @@ export function getModelFallbackOptions(model: string): SharedV3ProviderOptions 
   if (!fallbacks?.length) return undefined
   return { gateway: { models: fallbacks } }
 }
+
+export function buildProviderOptions(
+  model: string,
+  metadata?: { userId?: string, tags?: string[] },
+): SharedV3ProviderOptions | undefined {
+  const fallbacks = MODEL_FALLBACKS[model]
+  const gateway: Record<string, unknown> = {}
+
+  if (fallbacks?.length) gateway.models = fallbacks
+  if (metadata?.userId) gateway.user = metadata.userId
+  if (metadata?.tags?.length) gateway.tags = metadata.tags
+
+  return Object.keys(gateway).length > 0 ? { gateway } : undefined
+}
+
+export function buildGatewayProviderOptions(
+  metadata?: { userId?: string, tags?: string[] },
+): SharedV3ProviderOptions | undefined {
+  const gateway: Record<string, unknown> = {}
+
+  if (metadata?.userId) gateway.user = metadata.userId
+  if (metadata?.tags?.length) gateway.tags = metadata.tags
+
+  return Object.keys(gateway).length > 0 ? { gateway } : undefined
+}

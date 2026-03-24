@@ -1,12 +1,12 @@
 import { stepCountIs, ToolLoopAgent, type StepResult, type ToolSet } from 'ai'
 import { log } from 'evlog'
-import { DEFAULT_MODEL, getModelFallbackOptions } from '../router/schema'
+import { DEFAULT_MODEL, buildProviderOptions } from '../router/schema'
 import { compactContext } from '../core/context'
 import { callOptionsSchema } from '../core/schemas'
 import { sanitizeToolCallInputs } from '../core/sanitize'
 import { countConsecutiveToolSteps, shouldForceTextOnlyStep } from '../core/policy'
 import { webSearchTool } from '../tools/web-search'
-import { resolveModelWrapper } from '../core/observe'
+import { resolveModelWrapper, resolveGatewayMetadata } from '../core/observe'
 import type { AgentCallOptions, AgentExecutionContext, CreateAgentOptions } from '../types'
 
 export function createAgent({
@@ -58,7 +58,7 @@ export function createAgent({
         instructions: buildPrompt(routerConfig, agentConfig),
         tools: { ...tools, web_search: webSearchTool },
         stopWhen: stepCountIs(effectiveMaxSteps),
-        providerOptions: getModelFallbackOptions(effectiveModel),
+        providerOptions: buildProviderOptions(effectiveModel, resolveGatewayMetadata()),
         experimental_context: executionContext,
       }
     },

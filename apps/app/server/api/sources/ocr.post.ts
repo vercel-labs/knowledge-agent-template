@@ -1,5 +1,6 @@
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
+import { setAIGatewayMetadata } from '@savoir/agent'
 import type { SourceOcrItem } from '#shared/utils/source-ocr'
 import { IMAGE_OPTIMIZATION_CONFIG } from '#shared/utils/file'
 import { optimizeImage } from '~~/server/utils/image/optimize'
@@ -160,7 +161,8 @@ async function extractFromConfig(config: { filename: string, content: string }) 
 }
 
 export default defineEventHandler(async (event) => {
-  await requireUserSession(event)
+  const { user } = await requireUserSession(event)
+  setAIGatewayMetadata({ userId: user.id, tags: ['web-chat'] })
 
   const { images, configs } = await readValidatedBody(event, bodySchema.parse)
 

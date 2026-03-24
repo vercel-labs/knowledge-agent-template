@@ -2,8 +2,8 @@ import { generateText, Output } from 'ai'
 import type { UIMessage } from 'ai'
 import { log } from 'evlog'
 import { ROUTER_SYSTEM_PROMPT } from '../prompts/router'
-import { resolveModelWrapper } from '../core/observe'
-import { type AgentConfig, agentConfigSchema, getDefaultConfig, getModelFallbackOptions, ROUTER_MODEL } from './schema'
+import { resolveModelWrapper, resolveGatewayMetadata } from '../core/observe'
+import { type AgentConfig, agentConfigSchema, getDefaultConfig, buildProviderOptions, ROUTER_MODEL } from './schema'
 
 function extractQuestionFromMessages(messages: UIMessage[]): string {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
@@ -39,7 +39,7 @@ export async function routeQuestion(
         { role: 'system', content: ROUTER_SYSTEM_PROMPT },
         { role: 'user', content: `Question: ${question}` },
       ],
-      providerOptions: getModelFallbackOptions(ROUTER_MODEL),
+      providerOptions: buildProviderOptions(ROUTER_MODEL, resolveGatewayMetadata()),
     })
 
     if (!output) {
