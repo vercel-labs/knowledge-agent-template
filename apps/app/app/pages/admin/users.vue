@@ -33,7 +33,9 @@ const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 const deleteModalOpen = computed({
   get: () => userToDelete.value !== null,
-  set: (v: boolean) => { if (!v) userToDelete.value = null },
+  set: (v: boolean) => {
+    if (!v) userToDelete.value = null
+  },
 })
 
 const columns: TableColumn<AdminUserRow>[] = [
@@ -103,12 +105,18 @@ function isCurrentUser(userId: string): boolean {
 
 function getRowActions(row: AdminUserRow) {
   if (isCurrentUser(row.id)) return []
-  return [[{
-    label: 'Delete user',
-    icon: 'i-lucide-trash-2',
-    color: 'error' as const,
-    onSelect: () => { userToDelete.value = row },
-  }]]
+  return [
+    [
+      {
+        label: 'Delete user',
+        icon: 'i-lucide-trash-2',
+        color: 'error' as const,
+        onSelect: () => {
+          userToDelete.value = row
+        },
+      },
+    ],
+  ]
 }
 
 async function deleteUser() {
@@ -236,14 +244,14 @@ async function changeRole(row: AdminUserRow, newRole: UserRole) {
 
       <UTable
         ref="table"
-        :data="users ?? []"
-        :columns="columns"
-        :loading="status === 'pending' && !users"
         v-model:global-filter="globalFilter"
-        :global-filter-options="{ filterFn: 'custom' }"
         v-model:sorting="sorting"
-        :sorting-options="{ getSortedRowModel: getSortedRowModel() }"
         v-model:pagination="pagination"
+        :data="users ?? []"
+        :columns
+        :loading="status === 'pending' && !users"
+        :global-filter-options="{ filterFn: 'custom' }"
+        :sorting-options="{ getSortedRowModel: getSortedRowModel() }"
         :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
       >
         <template #name-cell="{ row }">

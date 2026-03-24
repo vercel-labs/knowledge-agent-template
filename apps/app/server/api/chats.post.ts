@@ -1,8 +1,8 @@
 import type { UIMessage } from 'ai'
 import { db, schema } from '@nuxthub/db'
 import { z } from 'zod'
-import type { CreateChatBody, CreateChatResponse } from '#shared/types/chat'
 import { checkRateLimit, incrementRateLimit } from '../utils/rate-limit'
+import type { CreateChatBody, CreateChatResponse } from '#shared/types/chat'
 
 const bodySchema = z.object({
   id: z.string(),
