@@ -1,5 +1,6 @@
 // Observability
-export { enterAIContext } from './core/observe'
+export { enterAIContext, setAIGatewayMetadata, resolveGatewayMetadata } from './core/observe'
+export type { GatewayMetadata } from './core/observe'
 
 // Tools
 export { webSearchTool } from './tools/web-search'
@@ -17,6 +18,8 @@ export {
   agentConfigSchema,
   getDefaultConfig,
   getModelFallbackOptions,
+  buildProviderOptions,
+  buildGatewayProviderOptions,
   DEFAULT_MODEL,
   ROUTER_MODEL,
 } from './router/schema'

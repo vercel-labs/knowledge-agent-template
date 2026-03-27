@@ -6,7 +6,9 @@ import {
   createAgent,
   DEFAULT_MODEL,
   getDefaultConfig,
-  getModelFallbackOptions,
+  buildProviderOptions,
+  resolveGatewayMetadata,
+  setAIGatewayMetadata,
   ROUTER_MODEL,
   ROUTER_SYSTEM_PROMPT,
   buildBotSystemPrompt,
@@ -47,7 +49,7 @@ async function routeQuestion(question: string, context?: ThreadContext): Promise
         { role: 'system', content: ROUTER_SYSTEM_PROMPT },
         { role: 'user', content: buildRouterInput(question, context) },
       ],
-      providerOptions: getModelFallbackOptions(ROUTER_MODEL),
+      providerOptions: buildProviderOptions(ROUTER_MODEL, resolveGatewayMetadata()),
     })
 
     if (!output) {
@@ -67,8 +69,11 @@ async function routeQuestion(question: string, context?: ThreadContext): Promise
 export async function generateAIResponse(
   question: string,
   context?: ThreadContext,
+  userId?: string,
 ): Promise<string> {
   const startTime = Date.now()
+  const adapterTag = context?.platform ? `${context.platform}-adapter` : 'bot'
+  setAIGatewayMetadata({ userId, tags: [adapterTag] })
 
   try {
     const savoir = createInternalSavoir({
@@ -104,7 +109,7 @@ export async function generateAIResponse(
           { role: 'user', content: buildBotUserMessage(question, context) },
           ...result.response.messages,
         ],
-        providerOptions: getModelFallbackOptions(DEFAULT_MODEL),
+        providerOptions: buildProviderOptions(DEFAULT_MODEL, resolveGatewayMetadata()),
       })
       if (fallback.text?.trim()) {
         return fallback.text

@@ -1,6 +1,6 @@
 import { stepCountIs, ToolLoopAgent, type StepResult, type ToolSet, type UIMessage } from 'ai'
 import { log } from 'evlog'
-import { DEFAULT_MODEL, getModelFallbackOptions } from '../router/schema'
+import { DEFAULT_MODEL, buildProviderOptions } from '../router/schema'
 import { routeQuestion } from '../router/route-question'
 import { buildChatSystemPrompt } from '../prompts/chat'
 import { applyComplexity } from '../prompts/shared'
@@ -9,7 +9,7 @@ import { callOptionsSchema } from '../core/schemas'
 import { sanitizeToolCallInputs } from '../core/sanitize'
 import { countConsecutiveToolSteps, shouldForceTextOnlyStep } from '../core/policy'
 import { webSearchTool } from '../tools/web-search'
-import { resolveModelWrapper } from '../core/observe'
+import { resolveModelWrapper, resolveGatewayMetadata } from '../core/observe'
 import type { AgentConfigData, AgentCallOptions, AgentExecutionContext, RoutingResult } from '../types'
 
 export interface SourceAgentOptions {
@@ -76,7 +76,7 @@ export function createSourceAgent({
         instructions: applyComplexity(buildChatSystemPrompt(agentConfig), routerConfig),
         tools: { ...tools, web_search: webSearchTool },
         stopWhen: stepCountIs(effectiveMaxSteps),
-        providerOptions: getModelFallbackOptions(effectiveModel),
+        providerOptions: buildProviderOptions(effectiveModel, resolveGatewayMetadata()),
         experimental_context: executionContext,
       }
     },

@@ -1,10 +1,10 @@
 import { stepCountIs, ToolLoopAgent, type StepResult, type ToolSet } from 'ai'
-import { DEFAULT_MODEL, getModelFallbackOptions } from '../router/schema'
+import { DEFAULT_MODEL, buildProviderOptions } from '../router/schema'
 import { ADMIN_SYSTEM_PROMPT } from '../prompts/chat'
 import { compactContext } from '../core/context'
 import { callOptionsSchema } from '../core/schemas'
 import { sanitizeToolCallInputs } from '../core/sanitize'
-import { resolveModelWrapper } from '../core/observe'
+import { resolveModelWrapper, resolveGatewayMetadata } from '../core/observe'
 import type { AgentCallOptions, AgentExecutionContext } from '../types'
 
 export interface AdminAgentOptions {
@@ -48,7 +48,7 @@ export function createAdminAgent({
         instructions: systemPrompt,
         tools,
         stopWhen: stepCountIs(maxSteps),
-        providerOptions: getModelFallbackOptions(effectiveModel),
+        providerOptions: buildProviderOptions(effectiveModel, resolveGatewayMetadata()),
         experimental_context: executionContext,
       }
     },
