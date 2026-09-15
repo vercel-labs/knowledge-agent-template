@@ -199,9 +199,18 @@ The sandbox system uses [Vercel Sandbox Snapshots](https://vercel.com/docs/verce
 
 #### Allowed Commands
 
-The sandbox only permits read-only commands: `find`, `ls`, `tree`, `grep`, `cat`, `head`, `tail`, `wc`, `sort`, `uniq`, `diff`, `echo`, `stat`, `file`, `du`, `basename`, `dirname`, `realpath`, `xargs`.
+Commands are not pattern-matched. `validateShellCommand()` in `@savoir/sdk` parses the line into pipeline stages and argv tokens, checks each stage against a per-command policy, then rebuilds the line with every argument single-quoted. Callers execute that rebuilt line, never the string they were given, so arguments cannot reopen the shell.
 
-Blocked: `rm`, `curl`, `wget`, `git`, `ssh`, `sudo`, command substitution, redirects, interpreters.
+Permitted: `find`, `ls`, `tree`, `grep`, `egrep`, `fgrep`, `cat`, `head`, `tail`, `wc`, `sort`, `uniq`, `cut`, `tr`, `column`, `echo`, `printf`, `basename`, `dirname`, `realpath`, `file`, `stat`, `du`, `diff`, `comm`, `md5sum`, `sha256sum` — each restricted to its own allowlist of options.
+
+Two rules shape that table:
+
+- **No command that can spawn another.** `awk`, `sed` and `xargs` are excluded, along with interpreters. A name-only allowlist cannot constrain what such a command does with its arguments: `awk 'BEGIN{system("id")}'` is a valid `awk` invocation.
+- **No command that can write.** `tee` is excluded, as are writing options of otherwise read-only commands (`sort -o`, `find -delete`, `find -fprintf`). The snapshot is shared between users, so a write primitive is a cross-user integrity issue, not just a local one.
+
+Also refused: redirections, command substitution, subshells, background execution, newlines, environment-assignment prefixes, and any path operand resolving outside `/vercel/sandbox`.
+
+Because arguments are quoted, the shell performs no glob expansion. Pass patterns to the tool that handles them (`grep --include='*.md'`, `find -name '*.md'`) rather than relying on the shell to expand `docs/*.md`. Pipelines and `&&`, `||`, `;` between allowed commands continue to work.
 
 ### 4. AI Agent (Router + Model Selection)
 
@@ -394,7 +403,9 @@ See [ENVIRONMENT.md](./ENVIRONMENT.md) for the complete list.
 ### Sandbox Isolation
 
 - Each sandbox runs in an isolated Vercel environment
-- No network access from within the sandbox
-- Read-only filesystem (cloned snapshot repo)
-- Commands limited to read-only operations (grep, cat, find, ls, etc.)
-- Blocked: destructive commands, network tools, interpreters, redirects
+- Sandboxes are pooled and shared between users, so treat their filesystem as shared state: the command policy is what keeps one user's agent from altering what another user's agent reads
+- The filesystem is writable at the OS level; it is the command policy, not a mount option, that keeps access read-only
+- Commands are parsed into argv and checked against a per-command policy, then re-quoted before execution (see [Allowed Commands](#allowed-commands))
+- No command in the policy can write a file or spawn another process
+- The same policy covers the HTTP endpoint and the bot adapters, whose input derives from untrusted issue and message bodies
+- `.git` is removed before every snapshot is taken: it carries the clone and push credentials, and anything inside a snapshot is readable by every agent that shares it

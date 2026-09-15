@@ -2,41 +2,31 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { db, schema } from '@nuxthub/db'
 import { createError } from 'evlog'
-import type { GenerateResult, ReportUsageOptions } from '@savoir/sdk'
+import { validateShellCommand, type GenerateResult, type ReportUsageOptions } from '@savoir/sdk'
 import { getOrCreateSandbox } from '../sandbox/manager'
 import { getAgentConfig, type AgentConfigData } from '../agent-config'
 
-const BLOCKED_PATTERNS = [
-  /\brm\s+-rf?\b/i,
-  /\brmdir\b/i,
-  /\bmkdir\b/i,
-  /\btouch\b/i,
-  /\bchmod\b/i,
-  /\bchown\b/i,
-  /\bsudo\b/i,
-  /\bcurl\b/i,
-  /\bwget\b/i,
-  /\bnc\b/i,
-  /\bssh\b/i,
-  /\bgit\b/i,
-  />\s*\//,
-  /\bdd\b/i,
-  /\bkill\b/i,
-  /\bpkill\b/i,
-]
-
 const MAX_OUTPUT = 50000
+const SANDBOX_ROOT = '/vercel/sandbox'
 
-function validateCommand(command: string): void {
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(command)) {
-      throw createError({
-        message: 'Command blocked by security policy',
-        status: 403,
-        why: `Command contains blocked pattern: ${command.slice(0, 50)}`,
-      })
-    }
+/**
+ * Returns the re-quoted command to execute — never run the agent's own string.
+ * Bot adapters reach this with input derived from untrusted issue and message
+ * bodies, so they share the single policy used by the HTTP shell endpoint.
+ */
+function sanitizeCommand(command: string): string {
+  const validation = validateShellCommand(command, {
+    allowedBaseDirectory: SANDBOX_ROOT,
+  })
+  if (!validation.ok) {
+    throw createError({
+      message: 'Command blocked by security policy',
+      status: 403,
+      why: validation.reason,
+      fix: `Use only allowed read-only commands within ${SANDBOX_ROOT}`,
+    })
   }
+  return validation.command
 }
 
 function truncateOutput(output: string): string {
@@ -73,15 +63,15 @@ Use standard Unix commands to explore and read files.`,
       yield { status: 'loading' as const }
       const start = Date.now()
 
-      validateCommand(command)
+      const executableCommand = sanitizeCommand(command)
 
       const active = await getOrCreateSandbox(sessionId)
       ;({ sessionId } = active)
 
       const result = await active.sandbox.runCommand({
         cmd: 'bash',
-        args: ['-c', command],
-        cwd: '/vercel/sandbox',
+        args: ['-c', executableCommand],
+        cwd: SANDBOX_ROOT,
       })
 
       const stdout = truncateOutput(await result.stdout())
@@ -117,17 +107,17 @@ Maximum 10 commands per batch.`,
       yield { status: 'loading' as const }
       const start = Date.now()
 
-      for (const cmd of commands) validateCommand(cmd)
+      const executableCommands = commands.map(sanitizeCommand)
 
       const active = await getOrCreateSandbox(sessionId)
       ;({ sessionId } = active)
 
       const results = []
-      for (const command of commands) {
+      for (const [index, command] of commands.entries()) {
         const result = await active.sandbox.runCommand({
           cmd: 'bash',
-          args: ['-c', command],
-          cwd: '/vercel/sandbox',
+          args: ['-c', executableCommands[index]!],
+          cwd: SANDBOX_ROOT,
         })
 
         results.push({

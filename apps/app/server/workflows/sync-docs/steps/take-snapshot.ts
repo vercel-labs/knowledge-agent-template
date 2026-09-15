@@ -7,6 +7,7 @@
 import { getStepMetadata } from 'workflow'
 import { log } from 'evlog'
 import { Sandbox } from '@vercel/sandbox'
+import { stripGitMetadata } from '../../../utils/sandbox/git'
 
 export interface TakeSnapshotResult {
   snapshotId: string
@@ -20,6 +21,8 @@ export async function stepTakeSnapshot(sandboxId: string): Promise<TakeSnapshotR
 
   // Reconnect to existing sandbox
   const sandbox = await Sandbox.get({ sandboxId })
+
+  await stripGitMetadata(sandbox)
 
   const snapshot = await sandbox.snapshot()
 

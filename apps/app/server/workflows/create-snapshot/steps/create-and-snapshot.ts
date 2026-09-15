@@ -8,6 +8,7 @@ import { getStepMetadata } from 'workflow'
 import { log } from 'evlog'
 import type { SnapshotConfig } from '../types'
 import { createSandbox } from '../../../utils/sandbox/context'
+import { stripGitMetadata } from '../../../utils/sandbox/git'
 
 export interface SnapshotResult {
   snapshotId: string
@@ -22,6 +23,8 @@ export async function stepCreateAndSnapshot(config: SnapshotConfig): Promise<Sna
 
   const sandbox = await createSandbox(config, 2 * 60 * 1000)
   log.info('snapshot', `[${stepId}] Sandbox created: ${sandbox.sandboxId}`)
+
+  await stripGitMetadata(sandbox)
 
   const snapshot = await sandbox.snapshot()
   log.info('snapshot', `[${stepId}] Snapshot created: ${snapshot.snapshotId}`)

@@ -13,18 +13,21 @@ const bodySchema = z.object({
 )
 
 const MAX_OUTPUT = 50000
+const SANDBOX_ROOT = '/vercel/sandbox'
 
-function validateCommand(command: string): void {
+/** Returns the re-quoted command to execute — never run the caller's own string. */
+function sanitizeCommand(command: string): string {
   const validation = validateShellCommand(command, {
-    allowedBaseDirectory: '/vercel/sandbox',
+    allowedBaseDirectory: SANDBOX_ROOT,
   })
   if (!validation.ok) {
     throw createError({
       statusCode: 400,
       message: validation.reason,
-      data: { why: 'The command failed security validation', fix: 'Use only allowed commands within /vercel/sandbox' },
+      data: { why: 'The command failed security validation', fix: `Use only allowed commands within ${SANDBOX_ROOT}` },
     })
   }
+  return validation.command
 }
 
 function truncateOutput(output: string): string {
@@ -48,10 +51,7 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, bodySchema.parse)
 
   const commands = body.commands || [body.command!]
-
-  for (const cmd of commands) {
-    validateCommand(cmd)
-  }
+  const executableCommands = commands.map(sanitizeCommand)
 
   const isBatch = commands.length > 1
   requestLog.set({ commandCount: commands.length, isBatch })
@@ -62,12 +62,12 @@ export default defineEventHandler(async (event) => {
 
   const results: CommandResult[] = []
 
-  for (const command of commands) {
+  for (const [index, command] of commands.entries()) {
     const execStart = Date.now()
     const result = await sandbox.runCommand({
       cmd: 'bash',
-      args: ['-c', command],
-      cwd: '/vercel/sandbox',
+      args: ['-c', executableCommands[index]!],
+      cwd: SANDBOX_ROOT,
     })
 
     results.push({

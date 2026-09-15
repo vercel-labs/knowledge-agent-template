@@ -4,6 +4,7 @@ import type { ActiveSandbox, SandboxManagerConfig, SnapshotMetadata } from './ty
 import { getCurrentSnapshot, setCurrentSnapshot } from './snapshot'
 import { deleteSandboxSession, generateSessionId, getSandboxSession, setSandboxSession, touchSandboxSession } from './session'
 import { getSnapshotRepoConfig } from './snapshot-config'
+import { stripGitMetadata } from './git'
 
 const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000
 const SANDBOX_TIMEOUT_MS = 5 * 60 * 1000
@@ -75,6 +76,8 @@ export async function createSnapshotFromRepo(repoUrl: string, branch: string = '
   })
 
   log.info('sandbox', `Sandbox created: ${sandbox.sandboxId}, taking snapshot...`)
+
+  await stripGitMetadata(sandbox)
 
   const snapshot = await sandbox.snapshot()
 
