@@ -53,7 +53,7 @@ Share any conversation with a single click. Generates a public read-only link wi
 
 ### Shared Sandbox Pool
 
-Sandboxes are pooled across users and conversations. When a chat starts, it connects to an already-running sandbox instead of creating a new one — startup in under 100ms. If none is available, a pre-built snapshot spins one up in 1–3s. Sandboxes are read-only with blocked dangerous commands, and automatically shared so multiple agents search the same up-to-date content without duplicating resources.
+Sandboxes are pooled across users and conversations. When a chat starts, it connects to an already-running sandbox instead of creating a new one — startup in under 100ms. If none is available, a pre-built snapshot spins one up in 1–3s. Because a sandbox is shared, agents reach it through a parsed command policy that permits only read-only commands — nothing that can write a file or spawn a process — so multiple agents search the same up-to-date content without duplicating resources or affecting each other.
 
 ## [Architecture](./docs/ARCHITECTURE.md)
 

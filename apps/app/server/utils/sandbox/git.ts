@@ -88,11 +88,17 @@ export async function commit(sandbox: Sandbox, message: string): Promise<void> {
   }
 }
 
-/** Pushes branch to remote repository with upstream tracking */
+/**
+ * Pushes branch to remote repository.
+ *
+ * The URL carries an access token, so the push must not set upstream tracking:
+ * `--set-upstream` would record the tokenised URL in `.git/config`, where it
+ * outlives the push and is readable by anything with access to the filesystem.
+ */
 export async function push(sandbox: Sandbox, repoUrl: string, branch: string): Promise<void> {
   const result = await sandbox.runCommand({
     cmd: 'git',
-    args: ['push', '--set-upstream', repoUrl, branch],
+    args: ['push', repoUrl, `${branch}:${branch}`],
     cwd: '/vercel/sandbox',
   })
 
@@ -101,6 +107,30 @@ export async function push(sandbox: Sandbox, repoUrl: string, branch: string): P
       message: `Git push failed for branch "${branch}"`,
       why: await result.stderr(),
       fix: 'Check repository permissions and ensure the remote URL is correct',
+    })
+  }
+}
+
+/**
+ * Removes the git metadata directory before a snapshot is taken.
+ *
+ * Snapshots are restored into sandboxes that every user's agent shares and can
+ * read, so `.git` must not travel with them: it holds the clone and push
+ * credentials as well as the full history, none of which the agent needs to
+ * search documentation.
+ */
+export async function stripGitMetadata(sandbox: Sandbox): Promise<void> {
+  const result = await sandbox.runCommand({
+    cmd: 'rm',
+    args: ['-rf', '/vercel/sandbox/.git'],
+    cwd: '/vercel/sandbox',
+  })
+
+  if (result.exitCode !== 0) {
+    throw createError({
+      message: 'Failed to remove git metadata before snapshot',
+      why: await result.stderr(),
+      fix: 'Snapshots must not ship .git, which carries repository credentials',
     })
   }
 }
