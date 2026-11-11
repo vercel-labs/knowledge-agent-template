@@ -34,7 +34,7 @@
     "@iconify-json/simple-icons": "^1.2.70",
     "@nuxt/ui": "^4.4.0",
     "@nuxthub/core": "^0.10.7",
-    "@nuxtjs/mdc": "^0.20.1",
+    "@nuxtjs/mdc": "^0.23.3",
     "@onmax/nuxt-better-auth": "0.0.2-alpha.29",
     "@savoir/agent": "workspace:*",
     "@savoir/github": "workspace:*",
